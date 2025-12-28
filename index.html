@@ -1,4 +1,4 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>忍術バトル 究極統合版(Ver.12)</title><style>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>忍術バトル 究極統合版(Ver.13)</title><style>
 body{font-family:sans-serif;text-align:center;background:#1a1a1a;color:#fff;margin:0;overflow:hidden;height:100vh;display:flex;flex-direction:column}
 #menu-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.95);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
 .btn-group{display:flex;flex-direction:column;gap:12px;margin-bottom:25px}
@@ -14,7 +14,8 @@ body{font-family:sans-serif;text-align:center;background:#1a1a1a;color:#fff;marg
 .card img{width:100%;height:70%;object-fit:cover;pointer-events:none}
 .card-label{font-size:12px;font-weight:700;background:rgba(0,0,0,0.6);position:absolute;bottom:0;width:100%}
 #battle-center{height:20%;background:rgba(0,0,0,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;border-top:1px solid #555;border-bottom:1px solid #555;z-index:10}
-#rule-banner{background:#e74c3c;color:#fff;font-size:0.8rem;padding:2px 12px;border-radius:10px;margin-bottom:5px;font-weight:bold}
+#info-panel{font-size:0.8rem;margin-bottom:5px}
+.info-badge{background:#444;padding:2px 8px;border-radius:5px;margin:0 3px}
 .decide-btn{width:180px;height:50px;font-size:1.3rem;border-radius:25px;border:none;background:#e74c3c;color:#fff;font-weight:700;box-shadow:0 4px 0 #c0392b;cursor:pointer;margin:5px auto;touch-action:manipulation}
 .waiting{opacity:.1;pointer-events:none}
 #flash-div{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1000;pointer-events:none}
@@ -22,12 +23,11 @@ body{font-family:sans-serif;text-align:center;background:#1a1a1a;color:#fff;marg
 .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100}
 </style></head><body>
 <div id="menu-screen">
-    <h2 style="margin:0 0 10px 0">ルール選択</h2>
+    <h2 style="margin:0 0 10px 0">究極忍術バトル (Ver.13)</h2>
     <div class="btn-group">
-        <button id="m-norm" class="mode-btn selected" onclick="selMode('N')">ノーマル<br><small>(最大3戦/出し直しOK)</small></button>
-        <button id="m-adv" class="mode-btn" onclick="selMode('A')">アドバンス<br><small>(最大5戦/同一手禁止あり)</small></button>
+        <button id="m-norm" class="mode-btn selected" onclick="selMode('N')">ノーマル<br><small>(3戦/出し直しOK/同一手OK)</small></button>
+        <button id="m-adv" class="mode-btn" onclick="selMode('A')">アドバンス<br><small>(5戦/1戦目あいこで同一手禁止)</small></button>
     </div>
-    <h2 style="margin:10px 0">対戦モード</h2>
     <div class="btn-group">
         <button id="p-com" class="mode-btn selected" onclick="selPlay('C')">1人 (vs COM)</button>
         <button id="p-pvp" class="mode-btn" onclick="selPlay('P')">2人 (対面バトル)</button>
@@ -37,42 +37,37 @@ body{font-family:sans-serif;text-align:center;background:#1a1a1a;color:#fff;marg
 <div id="flash-div"></div>
 <div id="p2-area" class="player-area"><div id="p2-hand" class="hand"></div><button id="p2-btn" class="decide-btn" onclick="confirmMove(2)">決定</button></div>
 <div id="battle-center">
-    <div id="rule-banner"></div>
+    <div id="info-panel">
+        <span class="info-badge" id="rule-text"></span>
+        <span class="info-badge" id="ban-text">禁止:なし</span>
+    </div>
     <div id="status-msg">いざ、尋常に…</div>
     <div id="score-line">P1: 0 | P2: 0</div>
     <div id="last-moves"></div>
 </div>
 <div id="p1-area" class="player-area"><button id="p1-btn" class="decide-btn" onclick="confirmMove(1)">決定</button><div id="p1-hand" class="hand"></div></div>
-<div id="overlay" class="modal"><h2>交代してください</h2><button class="mode-btn" onclick="closeOverlay()">準備完了</button></div>
+<div id="overlay" class="modal"><h2>プレイヤー交代</h2><p>相手に見えないようにスマホを渡してください</p><button class="mode-btn" onclick="closeOverlay()">準備完了</button></div>
 
 <script>
 const icons={'火':'https://livedoor.blogimg.jp/pokeruto_narutostorm/imgs/9/d/9df794cc.png','水':'https://ooyake01.com/wp-content/uploads/2019/07/%E6%89%89%E9%96%93.png','土':'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQgUZKzoGoqlDT7mUC9X8fE76pwS8yTZOsQJWSf0JLyzQ&s=10','風':'https://otakotaku.com/asset/img/character/2017/10/uzumaki-naruto-59dbafb3a0d9ep.jpg','雷':'https://images-na.ssl-images-amazon.com/images/I/71rse6gO0XL._CR550,250,1420,1420_.jpg'},rel={'火':'風','風':'雷','雷':'土','土':'水','水':'火'},typeOrd={'火':1,'水':2,'土':3,'風':4,'雷':5};
 let hands,scores,selected,confirmed,turn,gMode='N',pMode='C',p1D=[],p2D=[],firstPt=null,bannedStr=null;
 
-// モード選択
-function selMode(m){
-    gMode=m; bannedStr=null; // 切り替え時に禁止手をリセット
-    document.getElementById('m-norm').className=m==='N'?'mode-btn selected':'mode-btn';
-    document.getElementById('m-adv').className=m==='A'?'mode-btn selected':'mode-btn';
-}
-function selPlay(p){
-    pMode=p;
-    document.getElementById('p-com').className=p==='C'?'mode-btn selected':'mode-btn';
-    document.getElementById('p-pvp').className=p==='P'?'mode-btn selected':'mode-btn';
-}
-
-function applyStart(){
-    document.getElementById('menu-screen').style.display='none';
-    initGame();
-}
+function selMode(m){gMode=m; bannedStr=null; document.getElementById('m-norm').className=m==='N'?'mode-btn selected':'mode-btn'; document.getElementById('m-adv').className=m==='A'?'mode-btn selected':'mode-btn';}
+function selPlay(p){pMode=p; document.getElementById('p-com').className=p==='C'?'mode-btn selected':'mode-btn'; document.getElementById('p-pvp').className=p==='P'?'mode-btn selected':'mode-btn';}
+function applyStart(){document.getElementById('menu-screen').style.display='none';initGame();}
 
 function initGame(){
     hands={1:['火','水','土','風','雷'],2:['火','水','土','風','雷']};
     scores={1:0,2:0}; selected={1:[],2:[]}; confirmed={1:!1,2:!1};
     turn=1; firstPt=null; bannedStr=null; p1D=[]; p2D=[];
     document.getElementById('p2-btn').style.visibility=(pMode==='C')?'hidden':'visible';
-    document.getElementById('rule-banner').innerText = (gMode==='N') ? "【ノーマル：出し直しOK】" : "【アドバンス：1戦目あいこで禁止】";
-    renderHands(); unlockArea(1); unlockArea(2);
+    updateInfo(); renderHands(); unlockArea(1); unlockArea(2);
+}
+
+function updateInfo(){
+    document.getElementById('rule-text').innerText = (gMode==='N'?"【ノーマル】":"【アドバンス】");
+    document.getElementById('ban-text').innerText = "禁止: " + (bannedStr ? bannedStr : "なし");
+    document.getElementById('ban-text').style.color = bannedStr ? "#ff4757" : "#2ed573";
 }
 
 function renderHands(){
@@ -94,27 +89,26 @@ function renderHands(){
     document.getElementById('score-line').innerText=`P1: ${scores[1]} | P2: ${scores[2]} (戦目:${turn}/${limit})`;
 }
 
-// 決定ボタン押下時の処理
+// 決定ボタン：ロジックをノーマルとアドバンスで完全分離
 function confirmMove(p){
     const s = selected[p].slice().sort((a,b)=>typeOrd[a]-typeOrd[b]);
-    const cur = s.join("+");
-    
+    const moveStr = s.join("+");
     if(s.length===0) return;
 
-    // 【重要】ノーマルモードなら何があっても禁止チェックをスルーする
-    if(gMode === 'N'){
-        bannedStr = null; 
-    } else {
-        // アドバンスモードの場合のみ、直前と同じ手かをチェック
-        if(bannedStr && cur === bannedStr){
-            alert("アドバンスルール：直前と同じ出し方はできません！");
+    // --- ここからチェック ---
+    if(gMode === 'A'){
+        // アドバンスルール：禁止手との一致を確認
+        if(bannedStr && moveStr === bannedStr){
+            alert("アドバンスルール：直前と同じ手は出せません！");
             return;
         }
-    }
+    } 
+    // ノーマルモードの場合は、一切の禁止チェックを行わずスルー
 
-    // 忍術合成バリデーション
-    if(s.length===2 && !(s.includes('水') && s.includes('風'))){ alert("2枚は氷遁(水+風)のみ！"); return; }
-    if(s.length===3 && !(s.includes('火') && s.includes('風') && s.includes('土'))){ alert("3枚は塵遁(火+風+土)のみ！"); return; }
+    // 合成忍術バリデーション（全モード共通）
+    if(s.length===2 && !(s.includes('水') && s.includes('風'))){ alert("2枚出しは氷遁(水+風)のみ有効です！"); return; }
+    if(s.length===3 && !(s.includes('火') && s.includes('風') && s.includes('土'))){ alert("3枚出しは塵遁(火+風+土)のみ有効です！"); return; }
+    // --- チェック終了 ---
 
     if(p===1) p1D=[...s]; else p2D=[...s];
     confirmed[p]=!0; selected[p]=[]; renderHands(); lockArea(p);
@@ -131,10 +125,7 @@ function comLogic(){
     h2.forEach(c=>possible.push([c]));
     if(h2.includes('水')&&h2.includes('風')) possible.push(['水','風']);
     if(h2.includes('火')&&h2.includes('風')&&h2.includes('土')) possible.push(['火','風','土']);
-    
-    if(gMode==='A' && bannedStr){
-        possible = possible.filter(p=>p.sort((a,b)=>typeOrd[a]-typeOrd[b]).join("+") !== bannedStr);
-    }
+    if(gMode==='A' && bannedStr) possible = possible.filter(p=>p.sort((a,b)=>typeOrd[a]-typeOrd[b]).join("+") !== bannedStr);
     p2D = possible[Math.floor(Math.random()*possible.length)];
     confirmed[2]=!0; battle();
 }
@@ -144,32 +135,26 @@ function battle(){
     const s1=m1.join("+"), s2=m2.join("+");
     let win=0;
 
-    // 枚数判定
     if(m1.length > m2.length) win=1; 
     else if(m2.length > m1.length) win=2;
-    else if(m1.length === 1){ // 1枚同士の属性判定
-        if(rel[m1[0]]===m2[0]) win=1; else if(rel[m2[0]]===m1[0]) win=2;
-    }
+    else if(m1.length === 1 && rel[m1[0]]===m2[0]) win=1;
+    else if(m1.length === 1 && rel[m2[0]]===m1[0]) win=2;
 
-    // 演出
     const f=document.getElementById('flash-div'); f.style.animation='none'; setTimeout(()=>{f.style.animation='flash 0.4s'},10);
-    const limit = (gMode==='N')?3:5;
 
     if(win!==0){
-        // 決着がついた場合
         scores[win]++; if(firstPt===null) firstPt=win;
         m1.forEach(c=>hands[1].splice(hands[1].indexOf(c),1));
         m2.forEach(c=>hands[2].splice(hands[2].indexOf(c),1));
         document.getElementById('status-msg').innerText=`P${win}の勝利！`;
         bannedStr=null; turn++;
     } else {
-        // あいこの場合
         const isSame = (s1 === s2);
         if(gMode === 'N'){
             if(isSame && turn < 3){
-                bannedStr=null; // ノーマル：確実に禁止を解除
-                document.getElementById('status-msg').innerText="同一手あいこ！(再選択可能)";
-                resetTurn(); return; // そのまま次の選択へ
+                bannedStr=null; // ノーマル：完全に禁止情報をクリア
+                document.getElementById('status-msg').innerText="あいこ！再選択してください";
+                resetTurn(); updateInfo(); return;
             } else {
                 m1.forEach(c=>hands[1].splice(hands[1].indexOf(c),1));
                 m2.forEach(c=>hands[2].splice(hands[2].indexOf(c),1));
@@ -177,11 +162,10 @@ function battle(){
                 bannedStr=null; turn++;
             }
         } else {
-            // アドバンス
             if(isSame && turn===1){
-                bannedStr = s1; // 1戦目あいこのみ禁止手をセット
-                document.getElementById('status-msg').innerText="1戦目あいこ！(直前の手は禁止)";
-                resetTurn(); return;
+                bannedStr = s1; // アドバンス：ここでのみ禁止手をセット
+                document.getElementById('status-msg').innerText="1戦目あいこ！(次はこの手は禁止)";
+                resetTurn(); updateInfo(); return;
             } else {
                 m1.forEach(c=>hands[1].splice(hands[1].indexOf(c),1));
                 m2.forEach(c=>hands[2].splice(hands[2].indexOf(c),1));
@@ -192,17 +176,15 @@ function battle(){
     }
     
     document.getElementById('last-moves').innerHTML=`P1:${s1} vs P2:${s2}`;
-    renderHands();
+    updateInfo(); renderHands();
     
-    if(scores[1]>=2 || scores[2]>=2 || turn>limit || hands[1].length===0 || hands[2].length===0){
-        setTimeout(judgeFinal, 800);
-    } else {
-        resetTurn();
-    }
+    const limit = (gMode==='N')?3:5;
+    if(scores[1]>=2 || scores[2]>=2 || turn>limit || hands[1].length===0 || hands[2].length===0) setTimeout(judgeFinal, 800);
+    else resetTurn();
 }
 
 function resetTurn(){
-    confirmed={1:!1, 2:!1}; p1D=[]; p2D=[]; selected={1:[], 2:[]};
+    confirmed[1]=!1; confirmed[2]=!1; p1D=[]; p2D=[]; selected[1]=[]; selected[2]=[];
     unlockArea(1); unlockArea(2); renderHands();
 }
 
